@@ -2,11 +2,22 @@
 #include "Relay.h"
 #include "PID_v1.h"
 
-#define groupTempPin A0
+/*
+ 83: 100, 76: 94-96, 72: 90, 74: 92-93,
+ 
+ 92: 0.5bar, 94: 0.6bar
+ */
+#define defaultGoalTemp 96
+
+#define groupTempReference 92 
+
+#define boilerTempPin A1
+#define groupTempPin A2
 #define relayPin 12
-#define relayControlSeconds 1
-#define defaultGoalTemp 76 //83=100, 76=95.2, 72=90?
-#define readingsIntervalMs 1000
+#define groupTempPinHigh 8
+#define relayControlSeconds 0.5
+#define readingsIntervalMs 500
+
 
 double goal = defaultGoalTemp;
 double pidInput;
@@ -16,28 +27,30 @@ Thread timerThread = Thread();
 Relay relay(relayPin, relayControlSeconds);
 PID pidControl(&pidInput, &pidControlOutput, &goal, 20.0, 10.0, 18.0, DIRECT);
 
-void setup() {
+void setup() {  
   Serial.begin(9600);
 
   pinMode(relayPin , OUTPUT);
+  pinMode(groupTempPinHigh , OUTPUT);
+  digitalWrite(groupTempPinHigh, HIGH);
 
-  timerThread.onRun(updateReadings);
+  timerThread.onRun(updatePID);
   timerThread.setInterval(readingsIntervalMs);
   relay.setRelayMode(relayModeAutomatic);
   pidControl.SetMode(AUTOMATIC);
 }
 
-double readGroupTemp() {
-  int reading = analogRead(groupTempPin);
+double readTemp(int pin) {
+  int reading = analogRead(pin);
   double voltage = reading * (5.0 / 1024.0);
   double celcious = (voltage - 0.5) * 100;
 
   return celcious;
 }
 
-void updateReadings() {
+void updatePID() {
   float dutyCycle = relay.getDutyCyclePercent();
-  pidInput = readGroupTemp();
+  pidInput = readTemp(boilerTempPin);
 
   if (pidInput > goal) {
     relay.setDutyCyclePercent(0);
@@ -48,16 +61,19 @@ void updateReadings() {
   pidControl.Compute();
   relay.loop();
 
-  Serial.print("Goal: ");
-  Serial.print(goal);
-  Serial.print(" Input: ");
+  double groupTemp = readTemp(groupTempPin);
+
   Serial.print(pidInput);
-  Serial.print(" dutyCycle: ");
-  Serial.println(dutyCycle * 100);
+  Serial.print(", ");
+  Serial.print(groupTemp);
+  Serial.print(", ");
+  Serial.print(goal);
+  Serial.print(", ");
+  Serial.println(groupTempReference);
 }
 
 void loop() {
-  delay(100);
+  delay(5);
 
   if (timerThread.shouldRun())
     timerThread.run();
