@@ -3,10 +3,14 @@
 #include "PID_v1.h"
 
 #define defaultGoalTemp 92
+#define steamTemp 130
 #define sensorAdjustement -15
 
 #define boilerTempPin A3
 #define relayPin 12
+#define steamModePin 2
+#define steamModePinHigh 3
+#define steamModePinLow 4
 
 #define relayControlSeconds 0.5
 #define readingsIntervalMs 500
@@ -23,6 +27,11 @@ void setup() {
   Serial.begin(9600);
 
   pinMode(relayPin , OUTPUT);
+  pinMode(steamModePinHigh , OUTPUT);
+  pinMode(steamModePinLow , OUTPUT);
+
+  digitalWrite(steamModePinHigh, HIGH);
+  digitalWrite(steamModePinLow, LOW);
 
   timerThread.onRun(updatePID);
   timerThread.setInterval(readingsIntervalMs);
@@ -56,8 +65,17 @@ void updatePID() {
   relay.loop();
 }
 
+bool isSteamMode() {
+  return digitalRead(steamModePin);
+}
+
 void loop() {
   delay(500);
+
+  if (isSteamMode())
+    goal = steamTemp;
+  else
+    goal = defaultGoalTemp;
 
   if (timerThread.shouldRun())
     timerThread.run();
