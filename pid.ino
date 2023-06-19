@@ -2,22 +2,18 @@
 #include "Relay.h"
 #include "PID_v1.h"
 
-/*
- 83: 100, 76: 94-96, 72: 90, 74: 92-93,
- 
- 92: 0.5bar, 94: 0.6bar
- */
-#define defaultGoalTemp 96
+#define defaultGoalTemp 95//93
+#define steamTemp 130
+#define sensorAdjustement -7//-8
 
-#define groupTempReference 92 
-
-#define boilerTempPin A1
-#define groupTempPin A2
+#define boilerTempPin A3
 #define relayPin 12
-#define groupTempPinHigh 8
+#define steamModePin 2
+#define steamModePinHigh 3
+#define steamModePinLow 4
+
 #define relayControlSeconds 0.5
 #define readingsIntervalMs 500
-
 
 double goal = defaultGoalTemp;
 double pidInput;
@@ -27,12 +23,15 @@ Thread timerThread = Thread();
 Relay relay(relayPin, relayControlSeconds);
 PID pidControl(&pidInput, &pidControlOutput, &goal, 20.0, 10.0, 18.0, DIRECT);
 
-void setup() {  
+void setup() {
   Serial.begin(9600);
 
   pinMode(relayPin , OUTPUT);
-  pinMode(groupTempPinHigh , OUTPUT);
-  digitalWrite(groupTempPinHigh, HIGH);
+  pinMode(steamModePinHigh , OUTPUT);
+  pinMode(steamModePinLow , OUTPUT);
+
+  digitalWrite(steamModePinHigh, HIGH);
+  digitalWrite(steamModePinLow, LOW);
 
   timerThread.onRun(updatePID);
   timerThread.setInterval(readingsIntervalMs);
@@ -45,36 +44,40 @@ double readTemp(int pin) {
   double voltage = reading * (5.0 / 1024.0);
   double celcious = (voltage - 0.5) * 100;
 
-  return celcious;
+  return celcious - sensorAdjustement;
 }
 
 void updatePID() {
   float dutyCycle = relay.getDutyCyclePercent();
   pidInput = readTemp(boilerTempPin);
 
+  Serial.println(pidInput);
+
   if (pidInput > goal) {
     relay.setDutyCyclePercent(0);
     relay.setRelayPosition(relayPositionOpen);
-  } else
+  } else {
     relay.setDutyCyclePercent(pidControlOutput / 255.0);
+    relay.setRelayPosition(relayPositionClosed);
+  }
 
   pidControl.Compute();
   relay.loop();
+}
 
-  double groupTemp = readTemp(groupTempPin);
-
-  Serial.print(pidInput);
-  Serial.print(", ");
-  Serial.print(groupTemp);
-  Serial.print(", ");
-  Serial.print(goal);
-  Serial.print(", ");
-  Serial.println(groupTempReference);
+bool isSteamMode() {
+  return digitalRead(steamModePin);
 }
 
 void loop() {
-  delay(5);
+  delay(500);
+
+  if (isSteamMode())
+    goal = steamTemp;
+  else
+    goal = defaultGoalTemp;
 
   if (timerThread.shouldRun())
     timerThread.run();
+
 }
