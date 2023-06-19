@@ -2,9 +2,9 @@
 #include "Relay.h"
 #include "PID_v1.h"
 
-#define defaultGoalTemp 95//93
-#define steamTemp 130
-#define sensorAdjustement -7//-8
+#define defaultGoalTemp 94
+#define steamTemp 150
+#define sensorAdjustement -8
 
 #define boilerTempPin A3
 #define relayPin 12
@@ -13,7 +13,7 @@
 #define steamModePinLow 4
 
 #define relayControlSeconds 0.5
-#define readingsIntervalMs 500
+#define readingsIntervalMs 250
 
 double goal = defaultGoalTemp;
 double pidInput;
@@ -21,7 +21,7 @@ double pidControlOutput;
 
 Thread timerThread = Thread();
 Relay relay(relayPin, relayControlSeconds);
-PID pidControl(&pidInput, &pidControlOutput, &goal, 20.0, 10.0, 18.0, DIRECT);
+PID pidControl(&pidInput, &pidControlOutput, &goal, .0, 0.01, .0, DIRECT);
 
 void setup() {
   Serial.begin(9600);
@@ -70,7 +70,7 @@ bool isSteamMode() {
 }
 
 void loop() {
-  delay(500);
+  delay(readingsIntervalMs);
 
   if (isSteamMode())
     goal = steamTemp;
