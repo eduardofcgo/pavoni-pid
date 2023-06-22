@@ -2,9 +2,9 @@
 #include "Relay.h"
 #include "PID_v1.h"
 
-#define defaultGoalTemp 94
+#define defaultGoalTemp 93//92
 #define steamTemp 150
-#define sensorAdjustement -8
+#define sensorAdjustement -8//-8
 
 #define boilerTempPin A3
 #define relayPin 12
@@ -12,7 +12,7 @@
 #define steamModePinHigh 3
 #define steamModePinLow 4
 
-#define relayControlSeconds 0.5
+#define relayPeriodSeconds 1
 #define readingsIntervalMs 250
 
 double goal = defaultGoalTemp;
@@ -20,8 +20,9 @@ double pidInput;
 double pidControlOutput;
 
 Thread timerThread = Thread();
-Relay relay(relayPin, relayControlSeconds);
-PID pidControl(&pidInput, &pidControlOutput, &goal, .0, 0.01, .0, DIRECT);
+Relay relay(relayPin, relayPeriodSeconds);
+PID pidControl(&pidInput, &pidControlOutput, &goal, 2., 1., 1.8, DIRECT); //0, 1, 2
+//PID pidControl(&pidInput, &pidControlOutput, &goal, 0., 2., 5., DIRECT);
 
 void setup() {
   Serial.begin(9600);
@@ -36,6 +37,7 @@ void setup() {
   timerThread.onRun(updatePID);
   timerThread.setInterval(readingsIntervalMs);
   relay.setRelayMode(relayModeAutomatic);
+  relay.setDutyCyclePercent(0.);
   pidControl.SetMode(AUTOMATIC);
 }
 
@@ -51,14 +53,17 @@ void updatePID() {
   float dutyCycle = relay.getDutyCyclePercent();
   pidInput = readTemp(boilerTempPin);
 
-  Serial.println(pidInput);
+  Serial.print(pidInput);
+  Serial.print(", ");
+  Serial.println(pidControlOutput / 255);
 
   if (pidInput > goal) {
     relay.setDutyCyclePercent(0);
     relay.setRelayPosition(relayPositionOpen);
   } else {
-    relay.setDutyCyclePercent(pidControlOutput / 255.0);
-    relay.setRelayPosition(relayPositionClosed);
+    relay.setDutyCyclePercent(pidControlOutput / 255);
+    Serial.println("wowow!!");
+    Serial.println(relay.getDutyCyclePercent());
   }
 
   pidControl.Compute();
@@ -70,8 +75,6 @@ bool isSteamMode() {
 }
 
 void loop() {
-  delay(readingsIntervalMs);
-
   if (isSteamMode())
     goal = steamTemp;
   else
@@ -80,4 +83,5 @@ void loop() {
   if (timerThread.shouldRun())
     timerThread.run();
 
+  delay(100);
 }
