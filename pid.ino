@@ -2,9 +2,9 @@
 #include "Relay.h"
 #include "PID_v1.h"
 
-#define defaultGoalTemp 93//92
+#define defaultGoalTemp 95 //85 for dark roasts
 #define steamTemp 150
-#define sensorAdjustement -8//-8
+#define sensorAdjustement -8
 
 #define boilerTempPin A3
 #define relayPin 12
@@ -21,8 +21,7 @@ double pidControlOutput;
 
 Thread timerThread = Thread();
 Relay relay(relayPin, relayPeriodSeconds);
-PID pidControl(&pidInput, &pidControlOutput, &goal, 2., 1., 1.8, DIRECT); //0, 1, 2
-//PID pidControl(&pidInput, &pidControlOutput, &goal, 0., 2., 5., DIRECT);
+PID pidControl(&pidInput, &pidControlOutput, &goal, 0., 1., 2, DIRECT);
 
 void setup() {
   Serial.begin(9600);
@@ -46,24 +45,19 @@ double readTemp(int pin) {
   double voltage = reading * (5.0 / 1024.0);
   double celcious = (voltage - 0.5) * 100;
 
-  return celcious - sensorAdjustement;
+  return celcious;
 }
 
 void updatePID() {
   float dutyCycle = relay.getDutyCyclePercent();
-  pidInput = readTemp(boilerTempPin);
-
-  Serial.print(pidInput);
-  Serial.print(", ");
-  Serial.println(pidControlOutput / 255);
+  pidInput = readTemp(boilerTempPin) - sensorAdjustement;
 
   if (pidInput > goal) {
     relay.setDutyCyclePercent(0);
     relay.setRelayPosition(relayPositionOpen);
   } else {
-    relay.setDutyCyclePercent(pidControlOutput / 255);
-    Serial.println("wowow!!");
-    Serial.println(relay.getDutyCyclePercent());
+    float newDutyCycle = pidControlOutput / 255;
+    relay.setDutyCyclePercent(newDutyCycle);
   }
 
   pidControl.Compute();
@@ -80,8 +74,13 @@ void loop() {
   else
     goal = defaultGoalTemp;
 
-  if (timerThread.shouldRun())
-    timerThread.run();
+  if (timerThread.shouldRun()) {
+      Serial.print(pidInput);
+      Serial.print(", ");
+      Serial.println(relay.getDutyCyclePercent());
+
+      timerThread.run();
+  }
 
   delay(100);
 }
