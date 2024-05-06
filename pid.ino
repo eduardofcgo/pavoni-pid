@@ -2,12 +2,15 @@
 #include "Relay.h"
 #include "PID_v1.h"
 
-#define defaultGoalTemp 95 //85 for dark roasts
-#define steamTemp 150
-#define sensorAdjustement -8
+//96.5 - 92 at group
+//99.5 - 95 at group
+#define defaultGoalTemp 96.5
+
+#define steamTemp 130
+#define sensorAdjustement -4
 
 #define boilerTempPin A3
-#define relayPin 12
+#define relayPin 2
 #define steamModePin 2
 #define steamModePinHigh 3
 #define steamModePinLow 4
@@ -21,7 +24,12 @@ double pidControlOutput;
 
 Thread timerThread = Thread();
 Relay relay(relayPin, relayPeriodSeconds);
-PID pidControl(&pidInput, &pidControlOutput, &goal, 0., 1., 2, DIRECT);
+//PID pidControl(&pidInput, &pidControlOutput, &goal, 100.0, 0., 0., DIRECT);
+//PID pidControl(&pidInput, &pidControlOutput, &goal, 2.0, 200., 75., DIRECT);
+//PID pidControl(&pidInput, &pidControlOutput, &goal, 2.0, 0., 0., DIRECT);
+PID pidControl(&pidInput, &pidControlOutput, &goal, 4.0, 0., 0., DIRECT);
+//PID pidControl(&pidInput, &pidControlOutput, &goal, 32.0, 0., 0., DIRECT);
+
 
 void setup() {
   Serial.begin(9600);
@@ -75,7 +83,7 @@ void loop() {
     goal = defaultGoalTemp;
 
   if (timerThread.shouldRun()) {
-      Serial.print(pidInput);
+      Serial.print((int) pidInput);
       Serial.print(", ");
       Serial.println(relay.getDutyCyclePercent());
 
